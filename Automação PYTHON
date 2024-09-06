@@ -1,0 +1,277 @@
+import pyodbc
+import pandas as pd
+from selenium import webdriver
+from webdriver_manager.firefox import GeckoDriverManager
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+import time
+from shutil import move as shm
+import win32com.client as win32
+from datetime import datetime
+import os
+from sqlalchemy import create_engine
+from hdbcli import dbapi
+import pyhdb
+import hdbcli
+import pyautogui
+
+## EXTRAÇÃO DE DADOS DO SQL E SALVAR TUDO EM UM UNICO DOCUMENTO
+
+# Configurações de conexão com o SQL Server
+host = 'host' #Coloca o host
+port = '1010' #Coloque a porta de conexão
+database = 'DB' # Colocar o DB
+username = 'Usuario' #Colocar o Usuario
+password = 'password' #A senha do banco
+
+conn = hdbcli.dbapi.connect(
+        address=host,
+        port=port,
+        user=username,
+        password=password
+)
+#Parte 1
+def consultas_salvar(conn,channels):
+        for channel in channels:
+    #Consulta 1 #ABA 1
+                query1 =  f"""
+                    SUA QUERY 1 AQUI DENTRO
+                """
+                print(f"Query do {channel} realizado com sucesso")
+                df1 = pd.read_sql(query1, conn)
+
+    # Consulta 2 ABA 2
+                query2 = f"""
+                    SUA QUERY 2 AQUI DENTRO
+                    """
+                print(f"Query do {channel} realizado com sucesso")
+                df2 = pd.read_sql(query2, conn)
+
+    # Consulta 3 ABA 3
+                query3 =f"""
+                        SUA QUERY 3 AQUI DENTRO
+                        """
+                print(f"Query do {channel} realizado com sucesso")
+                df3 = pd.read_sql(query3, conn)
+
+    #Consulta 4 Store Replenish
+                if channel in ['C','F']:
+                    query4 = f"""
+                        SUA QUERY 4 AQUI DENTRO
+                    """
+                    print(f"Query do {channel} realizado com sucesso")
+                df4 = pd.read_sql(query4, conn)
+                # Gerar o numero da semana atual
+                data_atual = datetime.now()
+                numero_semana = data_atual.isocalendar().week
+
+                # Diretório onde o arquivo será salvo (exemplo: 'C:/Users/SeuUsuario/Documents')
+                diretorio = "C:/Users/SeuUsuario/Documents"
+
+                # Nome do arquivo com a data
+                nome_arquivo = f'{channel}_W{numero_semana}.xlsx'
+
+                # Combinar o diretório e o nome do arquivo
+                caminho_completo = os.path.join(diretorio, nome_arquivo)
+
+                # Criar o ExcelWriter com o caminho completo
+                if channel in ['A','B','C','D']:
+                    with pd.ExcelWriter(caminho_completo, engine='openpyxl') as writer:
+                    # Escrever cada DataFrame em uma aba diferente
+                        df1.to_excel(writer, sheet_name='ABA 1', index=False)
+                        df2.to_excel(writer, sheet_name='ABA 2', index=False)
+                        df3.to_excel(writer, sheet_name='ABA 3', index=False)
+                else:
+                    with pd.ExcelWriter(caminho_completo, engine='openpyxl') as writer:
+                    # Escrever cada DataFrame em uma aba diferente
+                        df1.to_excel(writer, sheet_name='ABA 1', index=False)
+                        df2.to_excel(writer, sheet_name='ABA 2', index=False)
+                        df3.to_excel(writer, sheet_name='ABA 3', index=False)
+                        df4.to_excel(writer, sheet_name='ABA 4', index=False)
+                
+
+channels = ['A','B','C','D','E','F']
+consultas_salvar(conn, channels)        
+print("Consulta executada e resultados salvos")
+
+#---------------------------------------------------------------------------------------------------------------------------------------------
+## Realizar o WebScrapping para extrair a imagem do Tableu
+def imagens_tableu_salvas(channels):
+    
+        for channel in channels:
+            try:
+                if channel in ['B']:
+                    data_atual = datetime.now()
+                    numero_semana = data_atual.isocalendar().week
+
+                    servico = Service(GeckoDriverManager().install())#Driver do FireFox precisa baixar o FireFox na maquina ou se tiver o chrome usar o chromedriver no lugar do gecko
+
+                    navegador = webdriver.Firefox(service=servico)
+
+                    navegador.maximize_window()
+                    navegador.get("https://tableu.com")
+
+                    #Preencher dados
+                    time.sleep(10)
+                    navegador.find_element(By.NAME,'username').send_keys("usario")#Colocar o login
+                    navegador.find_element(By.NAME,'password').send_keys("password")#Colocar a senha
+                    navegador.find_element(By.XPATH,'/html/body/div[1]/div/div[1]/div[2]/div/span/form/button').click()
+
+                    #A parte de webscrapping varia muit de arquivo para arquivo mas aqui tem um exemplo usando o pixel da tela para controlar o mouse
+                    time.sleep(10)
+                    pyautogui.PAUSE = 1
+                    pyautogui.moveTo(x=955, y=1013)
+                    pyautogui.mouseDown(button= 'left')
+                    time.sleep(5)
+                    pyautogui.moveTo(x=1475, y=1011)
+                    pyautogui.mouseUp(button='left')
+                    pyautogui.PAUSE = 1
+                    pyautogui.moveTo(x=1750, y=347)
+    
+                    pyautogui.click()
+                    pyautogui.write(channel, interval= 0.3)
+                    time.sleep(10)
+                    pyautogui.moveTo(x=1781, y=409)
+                    pyautogui.click()
+
+                    time.sleep(3)
+                    pyautogui.moveTo(x=1730, y=920)
+                    pyautogui.click()
+                    # Localizar o iframe primeiro
+                    time.sleep(2)
+                    iframe = navegador.find_element(By.XPATH, '/html/body/div[1]/div/div[1]/div/div[2]/div/div/div[2]/div/div/div/iframe')
+                    navegador.switch_to.frame(iframe)
+
+                    # Agora tente localizar o elemento dentro do iframe para baixar a imagem
+                    frame_element = navegador.find_element(By.ID, 'download')
+                    frame_element.click()
+                    time.sleep(3)
+
+                    button = WebDriverWait(navegador, 5).until(
+                        EC.element_to_be_clickable((By.XPATH,"/html/body/div[6]/div/div/div/div[1]"))
+                    )
+                    button.click()
+
+                    time.sleep(40)
+                    print('Imagem baixada do Tableu com sucesso')
+
+                    #Um exemplo de como ja baixar e alterar o nome do arquivo
+                    time.sleep(5)
+                    shm("C:\\Users\\administrador\\Downloads\\Documento.png", f"C:\\Users\\administrador\\Desktop\\Teste\\OverView_{channel}_W{numero_semana}.png")
+                    time.sleep(5)
+
+                else:
+                    
+                    data_atual = datetime.now()
+                    numero_semana = data_atual.isocalendar().week
+
+                    servico = Service(GeckoDriverManager().install())#Driver do FireFox precisa baixar o FireFox na maquina ou se tiver o chrome usar o chromedriver no lugar do gecko
+
+                    navegador = webdriver.Firefox(service=servico)
+
+                    navegador.maximize_window()
+                    navegador.get("https://tableu.com")
+
+                    #Preencher dados
+                    time.sleep(10)
+                    navegador.find_element(By.NAME,'username').send_keys("usario")#Colocar o login
+                    navegador.find_element(By.NAME,'password').send_keys("password")#Colocar a senha
+                    navegador.find_element(By.XPATH,'/html/body/div[1]/div/div[1]/div[2]/div/span/form/button').click()
+
+
+                    time.sleep(10)
+                    pyautogui.PAUSE = 1
+                    pyautogui.moveTo(x=955, y=1013)
+                    pyautogui.mouseDown(button= 'left')
+                    time.sleep(5)
+                    pyautogui.moveTo(x=1475, y=1011)
+                    pyautogui.mouseUp(button='left')
+                    pyautogui.PAUSE = 1
+                    pyautogui.moveTo(x=1750, y=347)
+                    pyautogui.click()
+                    pyautogui.write(channel, interval= 0.3)
+                    pyautogui.moveTo(x=1781, y=409)
+                    pyautogui.click()
+                    time.sleep(3)
+                    
+
+
+                    # Localizar o iframe primeiro
+                    time.sleep(2)
+                    iframe = navegador.find_element(By.XPATH, '/html/body/div[1]/div/div[1]/div/div[2]/div/div/div[2]/div/div/div/iframe')
+                    navegador.switch_to.frame(iframe)
+                    time.sleep(4)
+
+                    # Agora tente localizar o elemento dentro do iframe para baixar a imagem
+                    frame_element = navegador.find_element(By.ID, 'download')
+                    frame_element.click()
+                    time.sleep(3)
+
+                    button = WebDriverWait(navegador, 5).until(
+                        EC.element_to_be_clickable((By.XPATH,"/html/body/div[6]/div/div/div/div[1]"))
+                    )
+                    button.click()
+
+                    time.sleep(20)
+                    print('Imagem baixada do Tableu com sucesso')
+
+                    time.sleep(3)
+                    shm("C:\\Users\\administrador\\Downloads\\Documento.png", f"C:\\Users\\administrador\\Desktop\\Teste\\OverView_{channel}_W{numero_semana}.png")
+                    time.sleep(2)
+            except Exception as e:
+                print(f"{e}")
+
+channels = ['B','A','F''C','E','D']
+imagens_tableu_salvas(channels)
+
+
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------
+def enviar_emails(channels):
+    for channel in channels:   
+        ## Envio dos dados por Email
+        data_atual = datetime.now()
+        numero_semana = data_atual.isocalendar().week
+        # Inicializa o Outlook
+        outlook = win32.Dispatch('outlook.application')
+        mail = outlook.CreateItem(0)
+
+        # Configurações do e-mail
+        mail.To = 'lopes.lucas128@gmail' #esse é meu email caso queiram conversar comigo.
+        mail.Subject = 'teste'
+
+        # Texto do e-mail
+        body_text = f"Olá, João\n\nSegue o arquivo em anexo sobre {channel}.\n\nAtenciosamente,\nLucas"
+        mail.Body = body_text
+
+        # Anexa o arquivo
+        attachment_path = f"C:/Users/SeuUsuario/Documents/{channel}_W{numero_semana}.xlsx"
+        mail.Attachments.Add(attachment_path)
+
+        # Inclui uma imagem no corpo do e-mail (como HTML)
+        image_path = f"C:\\Users\\administrador\\Desktop\\Teste\\OverView_{channel}_W{numero_semana}.png"
+        html_body = f"""
+        <html>
+        <body>
+        <p>{body_text}</p>
+        <p><img src="cid:Imagem1"></p>
+        </body>
+        </html>
+        """
+
+        mail.HTMLBody = html_body
+
+        # Configura a imagem embutida no e-mail
+        attachment = mail.Attachments.Add(image_path)
+        attachment.PropertyAccessor.SetProperty("http://schemas.microsoft.com/mapi/proptag/0x3712001F", "Imagem1")
+
+        # Envia o e-mail
+        mail.Send()
+
+        print("E-mail enviado com sucesso!")
+
+
+channels = ['B','A','F''C','E','D']
+enviar_emails(channels)
